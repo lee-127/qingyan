@@ -1,0 +1,100 @@
+name: Build private Qingyan App
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_quota:
+        description: "I checked that my account has available included Actions minutes (or I accept my account's configured billing)."
+        required: true
+        default: false
+        type: boolean
+      run_device_layout_tests:
+        description: "Run launch tests in iPhone and iPad simulators (recommended)"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qingyan-private-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: ${{ inputs.confirm_quota && github.event.repository.private }}
+    runs-on: xcode-27
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Validate private source package
+        run: |
+          if test -f Qingyan-source.zip; then unzip -qo Qingyan-source.zip; fi
+          test -f project.yml
+          test -f QingyanApp/Web/index.html
+          test -f QingyanApp/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+          test ! -d node_modules
+          test ! -f QingyanApp/state.json
+          plutil -lint QingyanApp/Info.plist
+      - name: Generate Xcode project
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodegen generate --spec project.yml
+          xcodebuild -version
+      - name: Select available iPhone and iPad simulators
+        if: ${{ inputs.run_device_layout_tests }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          data = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '-j']))
+          devices = [d for group in data['devices'].values() for d in group if d.get('isAvailable')]
+          with open(os.environ['GITHUB_ENV'], 'a') as out:
+              for key, prefix in [('IPHONE_SIMULATOR', 'iPhone'), ('IPAD_SIMULATOR', 'iPad')]:
+                  device = next((d for d in devices if d['name'].startswith(prefix)), None)
+                  if device is None:
+                      raise SystemExit('No available ' + prefix + ' simulator; device verification cannot be skipped silently')
+                  out.write(key + '=' + device['udid'] + '\n')
+          PY
+      - name: Test iPhone launch and native file storage
+        if: ${{ inputs.run_device_layout_tests }}
+        run: |
+          xcodebuild test -project Qingyan.xcodeproj -scheme Qingyan \
+            -destination "platform=iOS Simulator,id=$IPHONE_SIMULATOR" \
+            -derivedDataPath build/Simulator -parallel-testing-enabled NO \
+            CODE_SIGNING_ALLOWED=NO -resultBundlePath build/iPhone-tests.xcresult
+      - name: Test iPad launch
+        if: ${{ inputs.run_device_layout_tests }}
+        run: |
+          xcodebuild test -project Qingyan.xcodeproj -scheme Qingyan \
+            -destination "platform=iOS Simulator,id=$IPAD_SIMULATOR" \
+            -derivedDataPath build/Simulator -parallel-testing-enabled NO \
+            -only-testing:QingyanUITests CODE_SIGNING_ALLOWED=NO \
+            -resultBundlePath build/iPad-tests.xcresult
+      - name: Build unsigned iPhone and iPad App
+        run: |
+          xcodebuild build -project Qingyan.xcodeproj -scheme Qingyan \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build/Device CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=''
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p build/package/Payload
+          ditto build/Device/Build/Products/Release-iphoneos/Qingyan.app build/package/Payload/Qingyan.app
+          cd build/package
+          zip -qry ../Qingyan-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Qingyan-private-unsigned-IPA
+          path: build/Qingyan-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7
+      - name: Save test reports
+        if: ${{ always() && inputs.run_device_layout_tests }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: Qingyan-Apple-test-reports
+          path: build/*.xcresult
+          if-no-files-found: ignore
+          retention-days: 3

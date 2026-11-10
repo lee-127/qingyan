@@ -1,0 +1,15 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { build } from "vite";
+import { build as esbuild } from "esbuild";
+import react from "@vitejs/plugin-react";
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const out = path.join(root, "ios", "QingyanApp", "Web");
+await build({ configFile: false, root, publicDir: false, plugins: [react()], resolve: { alias: { "@": root } }, define: { "process.env.NODE_ENV": '"production"' }, build: { outDir: out, emptyOutDir: true, target: "safari16", lib: { entry: path.join(root, "mobile/main.tsx"), formats: ["iife"], name: "QingyanApp", fileName: () => "app.js", cssFileName: "app" }, cssCodeSplit: false } });
+await fs.copyFile(path.join(root, "ios/native-startup.js"), path.join(out, "startup.js"));
+await fs.writeFile(path.join(out, "index.html"), `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src blob: data:; font-src data:; connect-src blob: data:; object-src 'none'; base-uri 'none'; form-action 'none'"><title>清研</title><link rel="stylesheet" href="app.css"></head><body><div id="root"><p style="padding:32px;font:16px system-ui">正在打开清研 App…</p></div><script src="startup.js"></script><script src="app.js"></script></body></html>`);
+await fs.mkdir(path.join(root, "outputs/ios-tests"), { recursive: true });
+await esbuild({ entryPoints: [path.join(root, "mobile/bridge.ts")], bundle: true, platform: "node", format: "esm", target: "node24", outfile: path.join(root, "outputs/ios-tests/bridge.mjs"), banner: { js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);' } });
+await esbuild({ entryPoints: [path.join(root, "mobile/transport.ts")], bundle: true, platform: "node", format: "esm", target: "node24", outfile: path.join(root, "outputs/ios-tests/transport.mjs") });
+console.log(JSON.stringify({ webAssets: out, nativeApp: true, appleSDKBuildVerified: false }));

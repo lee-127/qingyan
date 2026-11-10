@@ -1,0 +1,76 @@
+name: Qingyan
+options:
+  minimumXcodeGenVersion: 2.42.0
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    CODE_SIGN_STYLE: Automatic
+targets:
+  Qingyan:
+    type: application
+    platform: iOS
+    sources:
+      - path: QingyanApp
+        excludes: [Web, Info.plist, Assets.xcassets]
+      - path: QingyanApp/Assets.xcassets
+        buildPhase: resources
+      - path: QingyanApp/Web
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.qingyan.personalstudy
+        PRODUCT_NAME: Qingyan
+        PRODUCT_MODULE_NAME: Qingyan
+        INFOPLIST_FILE: QingyanApp/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        MARKETING_VERSION: 1.4.0
+        CURRENT_PROJECT_VERSION: 7
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+    dependencies:
+      - sdk: WebKit.framework
+      - sdk: QuickLook.framework
+      - sdk: VisionKit.framework
+      - sdk: PDFKit.framework
+      - sdk: AVFoundation.framework
+      - sdk: Security.framework
+      - sdk: UniformTypeIdentifiers.framework
+  QingyanTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [QingyanTests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.qingyan.personalstudy.tests
+    dependencies:
+      - target: Qingyan
+  QingyanUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [QingyanUITests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.qingyan.personalstudy.uitests
+    dependencies:
+      - target: Qingyan
+schemes:
+  Qingyan:
+    build:
+      targets:
+        Qingyan: all
+        QingyanTests: [test]
+        QingyanUITests: [test]
+    run:
+      config: Debug
+    archive:
+      config: Release
+    test:
+      config: Debug
+      targets: [QingyanTests, QingyanUITests]
