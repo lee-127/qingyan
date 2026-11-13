@@ -3173,6 +3173,7 @@ input::placeholder {
 }
 .ai-result-heading { justify-content: space-between; }
 .photo-search { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; max-width: 920px; }
+.variant-workspace { max-width: 920px; }
 .photo-search-input { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .photo-search-empty, .photo-search-preview {
   display: grid;
@@ -3254,38 +3255,43 @@ input::placeholder {
   margin: 6px auto;
   touch-action: none;
   user-select: none;
-  overflow: hidden;
+  overflow: visible;
   background: #fff;
   box-shadow: 0 1px 12px #253b3830;
   cursor: crosshair;
 }
 .crop-stage img { display: block; width: 100%; height: auto; pointer-events: none; }
+.crop-shade { position: absolute; inset: 0; width: 100%; height: 100%; fill: #17342e88; pointer-events: none; }
 .crop-box {
   position: absolute;
   border: 2px solid #31d29c;
-  box-shadow: 0 0 0 150vmax #17342e79;
   pointer-events: none;
 }
+.crop-move { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: auto; cursor: move; touch-action: none; }
 .crop-handle {
   position: absolute;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   pointer-events: auto;
   touch-action: none;
 }
 .crop-handle::after {
   content: "";
   position: absolute;
-  inset: 9px;
+  inset: 16px;
   border: 2px solid #207552;
   background: #eafff6;
   border-radius: 5px;
   pointer-events: none;
 }
-.crop-handle.tl { left: -9px; top: -9px; cursor: nwse-resize; }
-.crop-handle.tr { right: -9px; top: -9px; cursor: nesw-resize; }
-.crop-handle.bl { left: -9px; bottom: -9px; cursor: nesw-resize; }
-.crop-handle.br { right: -9px; bottom: -9px; cursor: nwse-resize; }
+.crop-handle.tl { left: -22px; top: -22px; cursor: nwse-resize; }
+.crop-handle.tr { right: -22px; top: -22px; cursor: nesw-resize; }
+.crop-handle.bl { left: -22px; bottom: -22px; cursor: nesw-resize; }
+.crop-handle.br { right: -22px; bottom: -22px; cursor: nwse-resize; }
+.crop-handle.t { left: calc(50% - 22px); top: -22px; cursor: ns-resize; }
+.crop-handle.b { left: calc(50% - 22px); bottom: -22px; cursor: ns-resize; }
+.crop-handle.l { left: -22px; top: calc(50% - 22px); cursor: ew-resize; }
+.crop-handle.r { right: -22px; top: calc(50% - 22px); cursor: ew-resize; }
 @media (max-width: 620px) {
   .exercise-folders { padding: 14px; }
   .crop-source-grid { grid-template-columns: 1fr; }

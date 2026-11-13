@@ -10,6 +10,7 @@ const photoPrompt = "请识别并解答题图中的题目。先简短说明你�
 
 export function PhotoSearch({ onSettings }: { onSettings: () => void }) {
   const [photo, setPhoto] = useState<File>();
+  const [original, setOriginal] = useState<File>();
   const [preview, setPreview] = useState("");
   const [note, setNote] = useState("");
   const [cropping, setCropping] = useState(false);
@@ -30,6 +31,7 @@ export function PhotoSearch({ onSettings }: { onSettings: () => void }) {
       const image = await pickQuestionPhoto(source);
       if (image) {
         setPhoto(image);
+        setOriginal(image);
         setCropping(false);
         setNote("");
       }
@@ -46,7 +48,7 @@ export function PhotoSearch({ onSettings }: { onSettings: () => void }) {
         <div>
           <span className="eyebrow">DEEPSEEK</span>
           <h1>AI 拍照搜题</h1>
-          <p>拍下题目或导入截图，让 DeepSeek 读图并给出解题步骤。</p>
+          <p>在相机里框住题目，拍下并确认选区后，让 DeepSeek 解答。</p>
         </div>
       </div>
       <div className="photo-search">
@@ -65,7 +67,7 @@ export function PhotoSearch({ onSettings }: { onSettings: () => void }) {
             {photo ? (
               <>
                 {cropping ? (
-                  <CropFrame source={photo} onUse={file => { setPhoto(file); setCropping(false); }} />
+                  <CropFrame source={original || photo} onUse={file => { setPhoto(file); setCropping(false); }} />
                 ) : (
                   <div className="photo-search-preview"><img src={preview || undefined} alt="待解答的题图" /></div>
                 )}
@@ -75,6 +77,7 @@ export function PhotoSearch({ onSettings }: { onSettings: () => void }) {
                   </Button>
                   <Button type="button" variant="ghost" disabled={!!picking} onClick={() => {
                     setPhoto(undefined);
+                    setOriginal(undefined);
                     setCropping(false);
                     setNote("");
                   }}><X size={16} />移除题图</Button>

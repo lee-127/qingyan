@@ -8,10 +8,14 @@ import { Busy, Button, Field, Select } from "./ui";
 
 type Point = { x: number; y: number };
 type Rect = { left: number; top: number; right: number; bottom: number };
-type Corner = "tl" | "tr" | "bl" | "br";
+type Handle = "tl" | "t" | "tr" | "r" | "br" | "b" | "bl" | "l";
 const full: Rect = { left: 0, top: 0, right: 1, bottom: 1 };
 const clamp = (value: number, min = 0, max = 1) => Math.max(min, Math.min(max, value));
-const minSide = 0.015;
+const handles: { id: Handle; label: string }[] = [
+  { id: "tl", label: "左上角" }, { id: "t", label: "上边" }, { id: "tr", label: "右上角" },
+  { id: "r", label: "右边" }, { id: "br", label: "右下角" }, { id: "b", label: "下边" },
+  { id: "bl", label: "左下角" }, { id: "l", label: "左边" },
+];
 
 export function CropFrame({ source, onUse }: { source: Blob; onUse: (file: File) => void }) {
   const [url, setURL] = useState("");
@@ -20,8 +24,12 @@ export function CropFrame({ source, onUse }: { source: Blob; onUse: (file: File)
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const image = useRef<HTMLImageElement>(null);
-  const drag = useRef<{ id: number; origin: Point; initial: Rect; corner?: Corner } | null>(null);
+  const drag = useRef<{ id: number; origin: Point; initial: Rect; mode: Handle | "move" | "draw" } | null>(null);
   useEffect(() => {
+    setReady(false);
+    setRect(full);
+    setError("");
+    drag.current = null;
     const next = URL.createObjectURL(source);
     setURL(next);
     return () => URL.revokeObjectURL(next);
@@ -29,32 +37,46 @@ export function CropFrame({ source, onUse }: { source: Blob; onUse: (file: File)
 
   function point(event: PointerEvent): Point {
     const bounds = image.current!.getBoundingClientRect();
-    return { x: clamp((event.clientX - bounds.left) / bounds.width), y: clamp((event.clientY - bounds.top) / bounds.height) };
+    return { x: (event.clientX - bounds.left) / bounds.width, y: (event.clientY - bounds.top) / bounds.height };
+  }
+  function minimum() {
+    const bounds = image.current?.getBoundingClientRect();
+    return { x: Math.min(0.2, 32 / (bounds?.width || 320)), y: Math.min(0.2, 32 / (bounds?.height || 320)) };
+  }
+  function resize(initial: Rect, handle: Handle, at: Point): Rect {
+    const min = minimum();
+    return {
+      left: handle.includes("l") ? clamp(at.x, 0, initial.right - min.x) : initial.left,
+      top: handle.includes("t") ? clamp(at.y, 0, initial.bottom - min.y) : initial.top,
+      right: handle.includes("r") ? clamp(at.x, initial.left + min.x) : initial.right,
+      bottom: handle.includes("b") ? clamp(at.y, initial.top + min.y) : initial.bottom,
+    };
+  }
+  function translated(initial: Rect, dx: number, dy: number): Rect {
+    dx = clamp(dx, -initial.left, 1 - initial.right);
+    dy = clamp(dy, -initial.top, 1 - initial.bottom);
+    return { left: initial.left + dx, top: initial.top + dy, right: initial.right + dx, bottom: initial.bottom + dy };
   }
   function begin(event: PointerEvent<HTMLDivElement>) {
     if (!ready || saving || drag.current || event.button !== 0) return;
     event.preventDefault();
-    const corner = (event.target as HTMLElement).dataset.corner as Corner | undefined;
-    drag.current = { id: event.pointerId, origin: point(event), initial: rect, corner };
+    const mode = (event.target as HTMLElement).dataset.cropAction as Handle | "move" | undefined;
+    drag.current = { id: event.pointerId, origin: point(event), initial: rect, mode: mode || "draw" };
     event.currentTarget.setPointerCapture(event.pointerId);
-  }
-  function resize(initial: Rect, corner: Corner, at: Point): Rect {
-    return {
-      left: corner.endsWith("l") ? clamp(at.x, 0, initial.right - minSide) : initial.left,
-      top: corner.startsWith("t") ? clamp(at.y, 0, initial.bottom - minSide) : initial.top,
-      right: corner.endsWith("r") ? clamp(at.x, initial.left + minSide) : initial.right,
-      bottom: corner.startsWith("b") ? clamp(at.y, initial.top + minSide) : initial.bottom,
-    };
   }
   function move(event: PointerEvent<HTMLDivElement>) {
     const active = drag.current;
     if (!active || active.id !== event.pointerId) return;
     const at = point(event);
-    if (active.corner) {
-      setRect(resize(active.initial, active.corner, at));
-    } else if (Math.abs(at.x - active.origin.x) >= minSide && Math.abs(at.y - active.origin.y) >= minSide) {
-      setRect({ left: Math.min(at.x, active.origin.x), right: Math.max(at.x, active.origin.x),
-        top: Math.min(at.y, active.origin.y), bottom: Math.max(at.y, active.origin.y) });
+    if (active.mode === "move") {
+      setRect(translated(active.initial, at.x - active.origin.x, at.y - active.origin.y));
+    } else if (active.mode === "draw") {
+      const min = minimum(), x = clamp(at.x), y = clamp(at.y);
+      if (Math.abs(x - active.origin.x) < min.x || Math.abs(y - active.origin.y) < min.y) return;
+      setRect({ left: Math.min(x, active.origin.x), right: Math.max(x, active.origin.x),
+        top: Math.min(y, active.origin.y), bottom: Math.max(y, active.origin.y) });
+    } else {
+      setRect(resize(active.initial, active.mode, at));
     }
   }
   function finish(event: PointerEvent<HTMLDivElement>) {
@@ -64,13 +86,14 @@ export function CropFrame({ source, onUse }: { source: Blob; onUse: (file: File)
   }
   async function useCrop() {
     const img = image.current;
-    if (!img?.naturalWidth) return;
+    if (!img?.naturalWidth || !ready || saving) return;
     setSaving(true);
     setError("");
     try {
       const left = Math.floor(rect.left * img.naturalWidth), top = Math.floor(rect.top * img.naturalHeight);
-      const width = Math.ceil(rect.right * img.naturalWidth) - left;
-      const height = Math.ceil(rect.bottom * img.naturalHeight) - top;
+      const width = Math.min(img.naturalWidth, Math.ceil(rect.right * img.naturalWidth)) - left;
+      const height = Math.min(img.naturalHeight, Math.ceil(rect.bottom * img.naturalHeight)) - top;
+      if (width < 2 || height < 2) throw new Error("选区太小，请扩大题目范围");
       const scale = Math.min(1, 2400 / Math.max(width, height));
       const canvas = document.createElement("canvas");
       canvas.width = Math.max(1, Math.round(width * scale));
@@ -91,31 +114,42 @@ export function CropFrame({ source, onUse }: { source: Blob; onUse: (file: File)
   }
   return (
     <div className="crop-preview">
-      <small className="muted">在预览上拖出题目范围，也可以拖动四角微调。</small>
+      <small className="muted">拖动框内可移动选区，拖边或四角可缩放。在框外拖动可重新选题。</small>
       {url && (
-        <div className="crop-stage" style={ready && image.current ? { width: `min(100%, ${62 * image.current.naturalWidth / image.current.naturalHeight}svh)` } : undefined}
+        <div className="crop-stage" style={ready && image.current ? { width: "min(100%, " + 62 * image.current.naturalWidth / image.current.naturalHeight + "svh)" } : undefined}
           onPointerDown={begin} onPointerMove={move}
           onPointerUp={finish} onPointerCancel={finish} onLostPointerCapture={finish}>
           <img ref={image} src={url} alt="待裁剪题目" draggable={false}
-            onLoad={() => setReady(true)} onError={() => setError("无法读取预览图片")} />
+            onLoad={() => setReady(true)} onError={() => { setReady(false); setError("无法读取预览图片"); }} />
           {ready && (
-            <div className="crop-box" style={{ left: `${rect.left * 100}%`, top: `${rect.top * 100}%`,
-              width: `${(rect.right - rect.left) * 100}%`, height: `${(rect.bottom - rect.top) * 100}%` }}>
-              {(["tl", "tr", "bl", "br"] as const).map((corner, index) => (
-                <button key={corner} type="button" data-corner={corner} className={`crop-handle ${corner}`}
-                  aria-label={`调整${["左上", "右上", "左下", "右下"][index]}裁剪角`}
+            <>
+              <svg className="crop-shade" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
+                <path fillRule="evenodd" d={"M0 0H1V1H0Z M" + rect.left + " " + rect.top + "H" + rect.right + "V" + rect.bottom + "H" + rect.left + "Z"} />
+              </svg>
+              <div className="crop-box" style={{ left: rect.left * 100 + "%", top: rect.top * 100 + "%",
+                width: (rect.right - rect.left) * 100 + "%", height: (rect.bottom - rect.top) * 100 + "%" }}>
+                <button className="crop-move" type="button" data-crop-action="move" aria-label="移动选区"
                   onKeyDown={event => {
                     const dx = event.key === "ArrowLeft" ? -0.01 : event.key === "ArrowRight" ? 0.01 : 0;
                     const dy = event.key === "ArrowUp" ? -0.01 : event.key === "ArrowDown" ? 0.01 : 0;
-                    if (!dx && !dy) return;
-                    event.preventDefault();
-                    setRect(previous => resize(previous, corner, {
-                      x: (corner.endsWith("l") ? previous.left : previous.right) + dx,
-                      y: (corner.startsWith("t") ? previous.top : previous.bottom) + dy,
-                    }));
+                    if (dx || dy) { event.preventDefault(); setRect(previous => translated(previous, dx, dy)); }
                   }} />
-              ))}
-            </div>
+                {handles.map(handle => (
+                  <button key={handle.id} type="button" data-crop-action={handle.id} className={"crop-handle " + handle.id}
+                    aria-label={"调整" + handle.label + "裁剪范围"}
+                    onKeyDown={event => {
+                      const dx = event.key === "ArrowLeft" ? -0.01 : event.key === "ArrowRight" ? 0.01 : 0;
+                      const dy = event.key === "ArrowUp" ? -0.01 : event.key === "ArrowDown" ? 0.01 : 0;
+                      if (!dx && !dy) return;
+                      event.preventDefault();
+                      setRect(previous => resize(previous, handle.id, {
+                        x: (handle.id.includes("l") ? previous.left : previous.right) + dx,
+                        y: (handle.id.includes("t") ? previous.top : previous.bottom) + dy,
+                      }));
+                    }} />
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}
@@ -127,6 +161,7 @@ export function CropFrame({ source, onUse }: { source: Blob; onUse: (file: File)
     </div>
   );
 }
+
 
 export function ExerciseCrop({ data, initial, upload, onUse, onClose }: {
   data: StudyData;

@@ -3,6 +3,19 @@ import UIKit
 
 final class LaunchTests: XCTestCase {
     @MainActor
+    func testVariantPracticeHasIndependentScreen() {
+        let app = XCUIApplication()
+        app.launch()
+        let web = app.webViews.firstMatch
+        XCTAssertTrue(web.staticTexts["我的复习空间"].firstMatch.waitForExistence(timeout: 20))
+        let menu = web.buttons["打开导航"].firstMatch
+        if menu.isHittable { menu.tap() }
+        web.buttons["AI 变式练习"].firstMatch.tap()
+        XCTAssertTrue(web.staticTexts["选择原错题"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(web.staticTexts["先在错题本录入一道题，再到这里生成变式练习。"].firstMatch.exists)
+    }
+
+    @MainActor
     func testPhotoSearchOpensFromNavigationAndRequiresAnImage() {
         let app = XCUIApplication()
         app.launch()

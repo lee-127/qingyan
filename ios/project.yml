@@ -29,8 +29,8 @@ targets:
         PRODUCT_MODULE_NAME: Qingyan
         INFOPLIST_FILE: QingyanApp/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        MARKETING_VERSION: 1.4.0
-        CURRENT_PROJECT_VERSION: 7
+        MARKETING_VERSION: 1.5.0
+        CURRENT_PROJECT_VERSION: 8
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
     dependencies:
       - sdk: WebKit.framework

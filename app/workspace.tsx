@@ -21,6 +21,7 @@ import {
   Upload,
   HardDrive,
   ScanSearch,
+  Sparkles,
 } from "lucide-react";
 import {
   EMPTY,
@@ -43,11 +44,13 @@ import { ICloudSyncCard } from "@/components/icloud-sync";
 import { MobileSyncCard } from "@/components/mobile-sync";
 import { DeepSeekSettings } from "@/components/ai-solver";
 import { PhotoSearch } from "@/components/photo-search";
+import { VariantWorkspace } from "@/components/variant-workspace";
 import { nativeStudyTools } from "@/lib/study-tools";
 
 const NAV = [
   { id: "dashboard", label: "复习概览", icon: LayoutDashboard },
   { id: "photo-search", label: "AI 拍照搜题", icon: ScanSearch, native: true },
+  { id: "variants", label: "AI 变式练习", icon: Sparkles, native: true },
   { id: "library", label: "资料库", icon: FolderOpen },
   { id: "mistakes", label: "错题本", icon: NotebookPen },
   { id: "builder", label: "错题组卷", icon: Files },
@@ -63,6 +66,7 @@ export default function Workspace({
   const restoreInput = useRef<HTMLInputElement>(null);
   const [localTransfer, setLocalTransfer] = useState(false);
   const [dataDirectory, setDataDirectory] = useState("");
+  const [variantId, setVariantId] = useState("");
   const [page, setPage] = useState("dashboard"),
     [data, setData] = useState<StudyData>(EMPTY),
     [loading, setLoading] = useState(true),
@@ -352,7 +356,7 @@ export default function Workspace({
                       ? phone ? "已保存到手机" : "已保存到本机"
                       : "记录已同步"}
             </span>
-            {page !== "photo-search" && <button
+            {!["photo-search", "variants"].includes(page) && <button
               className="topbar-add"
               onClick={() =>
                 add(
@@ -436,6 +440,12 @@ export default function Workspace({
                   <PhotoSearch onSettings={() => nav("settings")} />
                 </div>
               )}
+              {native && (
+                <div hidden={page !== "variants"}>
+                  <VariantWorkspace mistakes={shown.mistake} selectedId={variantId}
+                    onSelect={setVariantId} onSettings={() => nav("settings")} />
+                </div>
+              )}
               {page === "mistakes" && (
                 <Mistakes
                   data={shown}
@@ -454,6 +464,7 @@ export default function Workspace({
                     }
                   }}
                   onBuild={() => nav("builder")}
+                  onVariant={mistake => { setVariantId(mistake.id); nav("variants"); }}
                 />
               )}
               {
@@ -585,7 +596,7 @@ export default function Workspace({
                       <div className="panel-heading">
                         <h2>关于这个空间</h2>
                         <Badge tone="gray">
-                          {phone ? window.__qyNativeApp ? "清研 App v1.4.0" : "iPhone 运行版 v1.0.1" : local ? "本地版 v2.0" : "v1.0"}
+                          {phone ? window.__qyNativeApp ? "清研 App v1.5.0" : "iPhone 运行版 v1.0.1" : local ? "本地版 v2.0" : "v1.0"}
                         </Badge>
                       </div>
                       <div className="settings-content">

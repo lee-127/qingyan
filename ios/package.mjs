@@ -30,7 +30,7 @@ for (const name of ["QingyanApp", "QingyanTests", "QingyanUITests"]) await copyD
 await copyFile("project.yml", "project.yml");
 await copyFile("README.md", "README.md");
 await copyFile("workflows/build-private-ipa.yml", ".github/workflows/build-private-ipa.yml");
-const metadata = JSON.stringify({ app: "qingyan-private-ios", version: "1.4.0", targets: ["iPhone", "iPad"], minimumSystem: "16.0", signed: false, appleSDKBuildVerified: false, files: manifest }, null, 2);
+const metadata = JSON.stringify({ app: "qingyan-private-ios", version: "1.5.0", targets: ["iPhone", "iPad"], minimumSystem: "16.0", signed: false, appleSDKBuildVerified: false, files: manifest }, null, 2);
 zip.file("package-manifest.json", metadata);
 await fs.writeFile(path.join(stage, "package-manifest.json"), metadata);
 const destination = path.join(root, "outputs/清研-iPhone-iPad-私人App工程.zip");

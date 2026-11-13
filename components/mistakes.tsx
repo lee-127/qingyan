@@ -19,7 +19,6 @@ import {
 } from "@/lib/models";
 import { assetUrl } from "@/lib/client";
 import { AnswerContent } from "./answer-content";
-import { MistakeVariant } from "./mistake-variant";
 import { nativeStudyTools } from "@/lib/study-tools";
 export function Mistakes({
   data,
@@ -31,6 +30,7 @@ export function Mistakes({
   onDelete,
   onStatus,
   onBuild,
+  onVariant,
 }: {
   data: StudyData;
   subjects: string[];
@@ -41,6 +41,7 @@ export function Mistakes({
   onDelete: (m: Entry<Mistake>) => void;
   onStatus: (m: Entry<Mistake>, s: string) => void;
   onBuild: () => void;
+  onVariant?: (m: Entry<Mistake>) => void;
 }) {
   const [subject, setSubject] = useState("全部科目"),
     [reason, setReason] = useState("全部错因"),
@@ -268,6 +269,12 @@ export function Mistakes({
           onClose={() => setDetail(undefined)}
           footer={
             <>
+              {nativeStudyTools() && onVariant && (
+                <Button variant="secondary" onClick={() => {
+                  onVariant(detail);
+                  setDetail(undefined);
+                }}>AI 变式练习</Button>
+              )}
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -321,7 +328,6 @@ export function Mistakes({
             {detail.reflection || "尚未填写复盘"}
           </p>
           <small className="muted">来源：{detail.source || "未标注"}</small>
-          {nativeStudyTools() && <MistakeVariant key={detail.id} mistake={detail} />}
         </Modal>
       )}
     </>
